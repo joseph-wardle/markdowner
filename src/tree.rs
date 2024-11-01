@@ -1,3 +1,4 @@
+use glob::Pattern;
 use std::fs;
 use std::path::Path;
 
@@ -7,13 +8,24 @@ pub fn generate_directory_tree(
     prefix: &str,
     is_last: bool,
     base_dir: &Path,
+    ignore_patterns: &[String],
 ) -> String {
     let mut tree_str = String::new();
 
     let dir_name = if current_dir == base_dir {
-        format!("{}/", current_dir.file_name().unwrap_or_else(|| current_dir.as_os_str()).to_string_lossy())
+        format!(
+            "{}/",
+            current_dir
+                .file_name()
+                .unwrap_or_else(|| current_dir.as_os_str())
+                .to_string_lossy()
+        )
     } else {
-        current_dir.file_name().unwrap().to_string_lossy().into_owned()
+        current_dir
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
     };
 
     if current_dir == base_dir {
@@ -41,6 +53,11 @@ pub fn generate_directory_tree(
     let total_entries = dir_entries.len();
     for (index, entry) in dir_entries.into_iter().enumerate() {
         let path = entry.path();
+
+        if is_ignored(&path, ignore_patterns) {
+            continue;
+        }
+
         let is_last_entry = index == total_entries - 1;
 
         let new_prefix = if current_dir == base_dir {
@@ -52,7 +69,7 @@ pub fn generate_directory_tree(
         };
 
         if path.is_dir() {
-            let subtree = generate_directory_tree(&path, &new_prefix, is_last_entry, base_dir);
+            let subtree = generate_directory_tree(&path, &new_prefix, is_last_entry, base_dir, ignore_patterns);
             tree_str.push_str(&subtree);
         } else {
             let file_name = path.file_name().unwrap().to_string_lossy();
@@ -62,4 +79,15 @@ pub fn generate_directory_tree(
     }
 
     tree_str
+}
+
+fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
+    let path_str = path.to_string_lossy();
+    ignore_patterns.iter().any(|pattern| {
+        if let Ok(glob_pattern) = Pattern::new(pattern) {
+            glob_pattern.matches(&path_str)
+        } else {
+            false
+        }
+    })
 }

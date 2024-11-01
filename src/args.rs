@@ -12,4 +12,16 @@ pub struct Args {
     /// Output Markdown file (optional, defaults to stdout)
     #[arg(short, long)]
     pub output: Option<PathBuf>,
+
+    /// Patterns to ignore (files or directories), e.g., "node_modules/*"
+    #[arg(long)]
+    pub ignore: Vec<String>,
+
+    /// Generate a table of contents
+    #[arg(long)]
+    pub toc: bool,
+
+    /// Include file information (size, modified date)
+    #[arg(long)]
+    pub file_info: bool,
 }

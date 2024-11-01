@@ -14,10 +14,21 @@ fn main() -> io::Result<()> {
 
     validate_input_directory(&args.input)?;
 
-    let directory_tree = generate_directory_tree(&args.input, "", true, &args.input);
+    let directory_tree = generate_directory_tree(
+        &args.input,
+        "",
+        true,
+        &args.input,
+        &args.ignore,
+    );
 
     let supported_extensions = get_supported_extensions();
-    let markdown_output = generate_markdown(&args.input, &directory_tree, &supported_extensions);
+    let markdown_output = generate_markdown(
+        &args.input,
+        &directory_tree,
+        &supported_extensions,
+        &args,
+    );
 
     write_output(markdown_output, args.output)?;
 
