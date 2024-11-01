@@ -31,8 +31,7 @@ fn main() -> io::Result<()> {
     let mut supported_extensions: HashMap<&str, &str> = HashMap::new();
     supported_extensions.insert("rs", "rust");
     supported_extensions.insert("py", "python");
-    // To add more languages in the future, insert here
-    // supported_extensions.insert("js", "javascript");
+    supported_extensions.insert("java", "java");
 
     let mut markdown_output = String::new();
 
