@@ -33,7 +33,6 @@ markdowner --input <directory> [OPTIONS]
 - `--ignore <patterns>`: Ignores specified files or directories, e.g., `--ignore "node_modules/*"`.
 - `--toc`: Includes a table of contents at the beginning of the Markdown document.
 - `--file-info`: Adds file metadata (size, last modified date) under each file heading.
-- `--progress`: Displays a progress bar for file processing.
 
 ## License
 
