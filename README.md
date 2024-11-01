@@ -1,7 +1,3 @@
-Here’s a minimal `README.md` for the **markdowner** project:
-
----
-
 # Markdowner
 
 **Markdowner** is a Rust command-line tool that converts code files within a directory into a single, well-organized Markdown document. It includes options for customizing output with a directory tree, table of contents, file metadata, and progress tracking.
@@ -39,18 +35,52 @@ markdowner --input <directory> [OPTIONS]
 - `--file-info`: Adds file metadata (size, last modified date) under each file heading.
 - `--progress`: Displays a progress bar for file processing.
 
-### Example
-
-Generate a Markdown document from the `src/` directory, including a table of contents and file metadata, while ignoring `.git` and `target/` directories:
-
-```bash
-markdowner --input src/ --output output.md --toc --file-info --ignore .git --ignore target/*
-```
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
----
+### Example
 
-This `README.md` provides an overview of **markdowner**’s core features, installation, and usage. Let me know if you’d like any additional sections!
+```bash
+markdowner --input src/
+```
+
+### Output:
+
+```  
+src/  
+├─ lib.rs  
+├─ main.rs  
+└─ module.rs  
+```  
+
+---  
+
+### lib.rs
+
+```rust  
+pub mod module;
+```  
+  
+---  
+
+### main.rs
+
+```rust  
+fn main() {
+    crate::module::hello_world();
+}
+```  
+
+
+---  
+
+### module.rs
+
+```rust  
+pub fn hello_world() {
+	println!("Hello world!");
+}
+```  
+  
+
