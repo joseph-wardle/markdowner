@@ -48,6 +48,7 @@ pub fn get_supported_extensions() -> HashMap<&'static str, &'static str> {
         ("cmake", "cmake"),
         ("gd", "gdscript"),
         ("md", "markdown"),
+        ("txt", ""),
     ]
         .iter()
         .cloned()

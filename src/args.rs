@@ -5,8 +5,7 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct Args {
-    /// Input directory to scan for code files
-    #[arg(short, long)]
+    /// Input directory to scan for code files (positional argument)
     pub input: PathBuf,
 
     /// Output Markdown file (optional, defaults to stdout)
