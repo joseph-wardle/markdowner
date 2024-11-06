@@ -1,6 +1,6 @@
-use glob::Pattern;
 use std::fs;
 use std::path::Path;
+use crate::code_files::is_ignored;
 
 /// Generates a visual representation of the directory tree
 pub fn generate_directory_tree(
@@ -79,15 +79,4 @@ pub fn generate_directory_tree(
     }
 
     tree_str
-}
-
-fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
-    let path_str = path.to_string_lossy();
-    ignore_patterns.iter().any(|pattern| {
-        if let Ok(glob_pattern) = Pattern::new(pattern) {
-            glob_pattern.matches(&path_str)
-        } else {
-            false
-        }
-    })
 }

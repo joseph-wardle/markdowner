@@ -160,7 +160,7 @@ fn process_file(path: &Path, lang: &str, include_file_info: bool) -> std::io::Re
     Ok(file_markdown)
 }
 
-fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
+pub fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
     let path_str = path.to_string_lossy();
     ignore_patterns.iter().any(|pattern| {
         if let Ok(glob_pattern) = Pattern::new(pattern) {
