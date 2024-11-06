@@ -1,6 +1,6 @@
 [package]
 name = "markdowner"
-version = "0.4.1"
+version = "1.0.0"
 edition = "2021"
 description = "A command-line tool that converts code files in a directory to a structured markdown document."
 
@@ -10,3 +10,6 @@ walkdir = "2.5.0"
 glob = "0.3.1"
 chrono = "0.4.38"
 indicatif = "0.17.8"
+confy = "0.6.1"
+serde = { version = "1.0.214", features = ["derive"] }
+log = "0.4.22"

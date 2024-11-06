@@ -1,53 +1,50 @@
 mod args;
 mod code_files;
 mod tree;
+mod config;
+mod settings;
 
 use args::Args;
 use clap::Parser;
-use code_files::{generate_markdown, get_supported_extensions};
+use code_files::{generate_markdown, SupportedExtensions};
+use config::Config;
+use settings::Settings;
+use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
-use tree::generate_directory_tree;
+use std::path::{Path, PathBuf};
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
+    let config: Config = load_config();
+    let settings = Settings::from_args_and_config(args, config);
 
-    validate_input_directory(&args.input)?;
+    validate_directory(&settings.input_dir)?;
 
-    let directory_tree = generate_directory_tree(
-        &args.input,
-        "",
-        true,
-        &args.input,
-        &args.ignore,
-    );
+    let extensions = SupportedExtensions::new();
+    let markdown = generate_markdown(&settings, &extensions)?;
 
-    let supported_extensions = get_supported_extensions();
-    let markdown_output = generate_markdown(
-        &args.input,
-        &directory_tree,
-        &supported_extensions,
-        &args,
-    );
-
-    write_output(markdown_output, args.output)?;
+    write_output(markdown, &settings.output_path)?;
 
     Ok(())
 }
 
-fn validate_input_directory(input: &Path) -> io::Result<()> {
-    if !input.is_dir() {
-        eprintln!("Error: The input path is not a directory or does not exist.");
+fn load_config() -> Config {
+    confy::load("markdowner", None).unwrap_or_default()
+}
+
+fn validate_directory(directory: &Path) -> io::Result<()> {
+    if !directory.is_dir() {
+        eprintln!("Error: '{}' is not a valid directory", directory.display());
         std::process::exit(1);
     }
     Ok(())
 }
 
-fn write_output(markdown_output: String, output_path: Option<std::path::PathBuf>) -> io::Result<()> {
+fn write_output(markdown_output: String, output_path: &Option<PathBuf>) -> io::Result<()> {
     match output_path {
         Some(path) => {
-            std::fs::write(&path, markdown_output)?;
-            println!("Markdown document has been written to {}", path.display());
+            fs::write(path, markdown_output)?;
+            println!("Markdown document saved to '{}'.", path.display());
         }
         None => {
             io::stdout().write_all(markdown_output.as_bytes())?;

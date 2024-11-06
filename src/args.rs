@@ -5,22 +5,26 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct Args {
-    /// Input directory to scan for code files (positional argument)
-    pub input: PathBuf,
+    /// Input directory to scan for code files.
+    pub input_dir: PathBuf,
 
-    /// Output Markdown file (optional, defaults to stdout)
+    /// Output Markdown file path. Defaults to stdout if not provided.
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
-    /// Patterns to ignore (files or directories), e.g., "node_modules/*"
-    #[arg(long)]
+    /// Glob patterns to ignore (e.g., "node_modules/*").
+    #[arg(short, long)]
     pub ignore: Vec<String>,
 
-    /// Generate a table of contents
-    #[arg(long)]
+    /// Include a table of contents.
+    #[arg(short, long)]
     pub toc: bool,
 
-    /// Include file information (size, modified date)
-    #[arg(long)]
+    /// Include file metadata (size, last modified).
+    #[arg(short, long)]
     pub file_info: bool,
+
+    /// Include the directory tree structure.
+    #[arg(short, long)]
+    pub directory_tree: bool
 }
