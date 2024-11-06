@@ -78,6 +78,7 @@ pub fn generate_markdown(
     let mut markdown = String::new();
     let input_path = &settings.input_dir;
 
+    // Include the directory tree if the option is enabled
     if settings.include_directory_tree {
         let tree = build_directory_tree(input_path, &settings.ignore_patterns);
         markdown.push_str("```\n");
@@ -85,6 +86,7 @@ pub fn generate_markdown(
         markdown.push_str("```\n\n");
     }
 
+    // Collect all relevant files based on input directory and ignore patterns
     let file_paths = collect_files(input_path, &settings.ignore_patterns);
     let progress = initialize_progress(file_paths.len());
 
@@ -94,10 +96,19 @@ pub fn generate_markdown(
     for path in file_paths {
         if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
             if let Some(language) = extensions.get_language(extension) {
+                // Determine if the file is a Markdown file
                 let content = if language == "markdown" {
-                    process_markdown_file(&path, settings.include_file_info)?
+                    // Process Markdown files differently
+                    match process_markdown_file(&path, settings.include_file_info, input_path) {
+                        Ok(content) => content,
+                        Err(e) => {
+                            eprintln!("Warning: Could not read Markdown file {}: {}", path.display(), e);
+                            continue;
+                        }
+                    }
                 } else {
-                    match process_code_file(&path, language, settings.include_file_info) {
+                    // Process other code files normally
+                    match process_code_file(&path, language, settings.include_file_info, input_path) {
                         Ok(content) => content,
                         Err(e) => {
                             eprintln!("Warning: Could not read file {}: {}", path.display(), e);
@@ -114,9 +125,10 @@ pub fn generate_markdown(
         progress.set_message(format!("Processing {}", path.display()));
     }
 
-    // Finish progress bar
+    // Finish the progress bar
     progress.finish_with_message("Markdown generation complete.");
 
+    // Include the table of contents if the option is enabled
     if settings.include_toc {
         let toc = build_table_of_contents(&processed_files, input_path);
         markdown = format!("## Table of Contents\n\n{}\n\n{}", toc, markdown);
@@ -125,6 +137,7 @@ pub fn generate_markdown(
     Ok(markdown)
 }
 
+/// Collects all files from the input directory, excluding those that match ignore patterns.
 fn collect_files(input_dir: &Path, ignore_patterns: &[String]) -> Vec<PathBuf> {
     WalkDir::new(input_dir)
         .into_iter()
@@ -135,6 +148,7 @@ fn collect_files(input_dir: &Path, ignore_patterns: &[String]) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Initializes the progress bar for tracking file processing.
 fn initialize_progress(total: usize) -> ProgressBar {
     let progress = ProgressBar::new(total as u64);
     progress.set_style(
@@ -146,18 +160,21 @@ fn initialize_progress(total: usize) -> ProgressBar {
     progress
 }
 
-fn process_code_file(path: &Path, language: &str, include_info: bool) -> io::Result<String> {
+/// Processes a code file by encapsulating its content within code blocks and adding metadata.
+fn process_code_file(path: &Path, language: &str, include_info: bool, base_dir: &Path) -> io::Result<String> {
     let content = fs::read_to_string(path)?;
     let metadata = fs::metadata(path)?;
     let modified_time: DateTime<Local> = metadata.modified()?.into();
     let file_size = metadata.len();
 
+    // Compute the full relative path of the file
+    let relative_path = path.strip_prefix(base_dir).unwrap_or(path).display().to_string();
+
     let mut markdown = String::new();
     markdown.push_str("---\n\n");
 
-    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-        markdown.push_str(&format!("### {}\n\n", file_name));
-    }
+    // Use the full relative path in the header
+    markdown.push_str(&format!("# {}\n\n", relative_path));
 
     if include_info {
         markdown.push_str(&format!(
@@ -167,6 +184,7 @@ fn process_code_file(path: &Path, language: &str, include_info: bool) -> io::Res
         ));
     }
 
+    // Encapsulate code content within code fences for syntax highlighting
     markdown.push_str(&format!("```{}\n", language));
     markdown.push_str(&content);
     if !content.ends_with('\n') {
@@ -177,18 +195,21 @@ fn process_code_file(path: &Path, language: &str, include_info: bool) -> io::Res
     Ok(markdown)
 }
 
-fn process_markdown_file(path: &Path, include_info: bool) -> io::Result<String> {
+/// Processes a Markdown file by adjusting header levels and adding metadata.
+fn process_markdown_file(path: &Path, include_info: bool, base_dir: &Path) -> io::Result<String> {
     let content = fs::read_to_string(path)?;
     let metadata = fs::metadata(path)?;
     let modified_time: DateTime<Local> = metadata.modified()?.into();
     let file_size = metadata.len();
 
+    // Compute the full relative path of the file
+    let relative_path = path.strip_prefix(base_dir).unwrap_or(path).display().to_string();
+
     let mut markdown = String::new();
     markdown.push_str("---\n\n");
 
-    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-        markdown.push_str(&format!("### {}\n\n", file_name));
-    }
+    // Use the full relative path in the header
+    markdown.push_str(&format!("# {}\n\n", relative_path));
 
     if include_info {
         markdown.push_str(&format!(
@@ -198,6 +219,7 @@ fn process_markdown_file(path: &Path, include_info: bool) -> io::Result<String> 
         ));
     }
 
+    // Adjust header levels within the Markdown content
     let adjusted_content = adjust_markdown_headers(&content);
     markdown.push_str(&adjusted_content);
     markdown.push_str("\n\n");
@@ -212,6 +234,7 @@ fn adjust_markdown_headers(content: &str) -> String {
         .map(|line| {
             if let Some(header_end) = line.find(|c: char| c != '#') {
                 let header_length = header_end;
+                // Ensure there's at least one space after the hashes for it to be a valid header
                 if header_length > 0 && line[header_length..].starts_with(' ') {
                     let new_level = if header_length < 6 {
                         header_length + 1
@@ -236,6 +259,7 @@ fn adjust_markdown_headers(content: &str) -> String {
         .join("\n")
 }
 
+/// Determines if a given path should be ignored based on the provided patterns.
 fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
     let path_str = path.to_string_lossy();
     ignore_patterns.iter().any(|pattern| {
@@ -243,18 +267,28 @@ fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
     })
 }
 
+/// Builds the table of contents using the full relative paths of the processed files.
 fn build_table_of_contents(file_paths: &[PathBuf], base_dir: &Path) -> String {
     file_paths
         .iter()
         .filter_map(|path| {
             path.strip_prefix(base_dir).ok().map(|relative| {
                 let display = relative.display().to_string();
-                let anchor = display
-                    .replace(['/', '.'], "")
-                    .to_lowercase();
+                let anchor = generate_anchor(&display);
                 format!("- [{}](#{})", display, anchor)
             })
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Generates a valid Markdown anchor from a given display string.
+/// This function replaces characters that are not alphanumeric with empty strings
+/// and converts the string to lowercase.
+fn generate_anchor(display: &str) -> String {
+    display
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>()
+        .to_lowercase()
 }
