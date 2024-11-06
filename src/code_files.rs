@@ -3,6 +3,7 @@ use glob::Pattern;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -73,15 +74,12 @@ impl SupportedExtensions {
 pub fn generate_markdown(
     settings: &Settings,
     extensions: &SupportedExtensions,
-) -> std::io::Result<String> {
+) -> io::Result<String> {
     let mut markdown = String::new();
     let input_path = &settings.input_dir;
 
     if settings.include_directory_tree {
-        let tree = build_directory_tree(
-            input_path,
-            &settings.ignore_patterns,
-        );
+        let tree = build_directory_tree(input_path, &settings.ignore_patterns);
         markdown.push_str("```\n");
         markdown.push_str(&tree);
         markdown.push_str("```\n\n");
@@ -96,10 +94,20 @@ pub fn generate_markdown(
     for path in file_paths {
         if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
             if let Some(language) = extensions.get_language(extension) {
-                if let Ok(content) = process_file(&path, language, settings.include_file_info) {
-                    processed_files.push(path.clone());
-                    markdown.push_str(&content);
-                }
+                let content = if language == "markdown" {
+                    process_markdown_file(&path, settings.include_file_info)?
+                } else {
+                    match process_code_file(&path, language, settings.include_file_info) {
+                        Ok(content) => content,
+                        Err(e) => {
+                            eprintln!("Warning: Could not read file {}: {}", path.display(), e);
+                            continue;
+                        }
+                    }
+                };
+
+                processed_files.push(path.clone());
+                markdown.push_str(&content);
             }
         }
         progress.inc(1);
@@ -138,7 +146,7 @@ fn initialize_progress(total: usize) -> ProgressBar {
     progress
 }
 
-fn process_file(path: &Path, language: &str, include_info: bool) -> std::io::Result<String> {
+fn process_code_file(path: &Path, language: &str, include_info: bool) -> io::Result<String> {
     let content = fs::read_to_string(path)?;
     let metadata = fs::metadata(path)?;
     let modified_time: DateTime<Local> = metadata.modified()?.into();
@@ -169,6 +177,65 @@ fn process_file(path: &Path, language: &str, include_info: bool) -> std::io::Res
     Ok(markdown)
 }
 
+fn process_markdown_file(path: &Path, include_info: bool) -> io::Result<String> {
+    let content = fs::read_to_string(path)?;
+    let metadata = fs::metadata(path)?;
+    let modified_time: DateTime<Local> = metadata.modified()?.into();
+    let file_size = metadata.len();
+
+    let mut markdown = String::new();
+    markdown.push_str("---\n\n");
+
+    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+        markdown.push_str(&format!("### {}\n\n", file_name));
+    }
+
+    if include_info {
+        markdown.push_str(&format!(
+            "*Last modified:* `{}` | *Size:* `{}` bytes\n\n",
+            modified_time.format("%Y-%m-%d %H:%M:%S"),
+            file_size
+        ));
+    }
+
+    let adjusted_content = adjust_markdown_headers(&content);
+    markdown.push_str(&adjusted_content);
+    markdown.push_str("\n\n");
+
+    Ok(markdown)
+}
+
+/// Increases each header level in the Markdown content by one, capping at level 6.
+fn adjust_markdown_headers(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| {
+            if let Some(header_end) = line.find(|c: char| c != '#') {
+                let header_length = header_end;
+                if header_length > 0 && line[header_length..].starts_with(' ') {
+                    let new_level = if header_length < 6 {
+                        header_length + 1
+                    } else {
+                        6
+                    };
+                    let new_hashes = "#".repeat(new_level);
+                    format!("{}{}", new_hashes, &line[header_length..])
+                } else {
+                    line.to_string()
+                }
+            } else {
+                // Line consists entirely of '#' characters or is empty
+                if !line.trim().is_empty() && line.chars().all(|c| c == '#') {
+                    "#".repeat(6)
+                } else {
+                    line.to_string()
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
     let path_str = path.to_string_lossy();
     ignore_patterns.iter().any(|pattern| {
@@ -177,11 +244,17 @@ fn is_ignored(path: &Path, ignore_patterns: &[String]) -> bool {
 }
 
 fn build_table_of_contents(file_paths: &[PathBuf], base_dir: &Path) -> String {
-    file_paths.iter().filter_map(|path| {
-        path.strip_prefix(base_dir).ok().map(|relative| {
-            let display = relative.display().to_string();
-            let anchor = display.replace(['/', '.'], "").to_lowercase();
-            format!("- [{}](#{})", display, anchor)
+    file_paths
+        .iter()
+        .filter_map(|path| {
+            path.strip_prefix(base_dir).ok().map(|relative| {
+                let display = relative.display().to_string();
+                let anchor = display
+                    .replace(['/', '.'], "")
+                    .to_lowercase();
+                format!("- [{}](#{})", display, anchor)
+            })
         })
-    }).collect::<Vec<_>>().join("\n")
+        .collect::<Vec<_>>()
+        .join("\n")
 }
